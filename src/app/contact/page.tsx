@@ -2,17 +2,38 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, Clock, MapPin } from "lucide-react"
-
+import { Calendar, Clock } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { supabase } from '@/lib/supabase';
 
 export default function ContactPage() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [appointmentName, setAppointmentName] = useState('');
+  const [appointmentEmail, setAppointmentEmail] = useState('');
+  const appointmentFormRef = useRef<HTMLFormElement>(null);
+
+  const handleAppointmentSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const { error } = await supabase.from('appointments').insert([
+      { date, time, name: appointmentName, email: appointmentEmail }
+    ]);
+    if (!error) {
+      alert('Appointment request sent!');
+      setAppointmentName(''); setAppointmentEmail(''); setDate(''); setTime('');
+    } else {
+      alert('Failed to send appointment request.');
+    }
+  };
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
 
   const validateTime = (value: string) => {
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -21,17 +42,49 @@ export default function ContactPage() {
 
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    
     if (value === '') {
       setTime('');
       return;
     }
-
     if (validateTime(value)) {
       setTime(value);
     }
   };
-  
+
+  const handleSendEmail = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      console.log('Attempting to send message with data:', {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        subject,
+        message
+      });
+
+      const { data, error } = await supabase.from('contacts').insert([
+        { first_name: firstName, last_name: lastName, email, subject, message }
+      ]);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        alert(`Failed to send message: ${error.message}`);
+        return;
+      }
+
+      console.log('Message sent successfully:', data);
+      alert('Message sent!');
+      setFirstName(''); 
+      setLastName(''); 
+      setEmail(''); 
+      setSubject(''); 
+      setMessage('');
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('An unexpected error occurred while sending the message.');
+    }
+  };
+
   return (
     <main className="flex-1 flex flex-col items-center">
       {/* Hero Section with Grid Pattern */}
@@ -47,21 +100,17 @@ export default function ContactPage() {
             sizes="100vw"
           />
         </div>
-        
         {/* Decorative circle */}
         <div className="absolute top-1/3 left-1/4 w-12 h-12 bg-[#F87239]/20 rounded-full blur-md"></div>
-        
         <div className="container mx-auto relative z-10 flex flex-col items-center text-center px-4">
           <div className="max-w-3xl">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-gray-900">Contact Us</h1>
             <p className="text-xl text-gray-800 max-w-2xl mx-auto">
-              Have questions about our LMS platform? We&apos;re here to help you find the right solution for your educational
-              needs.
+              Have questions about our LMS platform? We&apos;re here to help you find the right solution for your educational needs.
             </p>
           </div>
         </div>
       </section>
-
       {/* Contact Forms Section */}
       <section className="py-16 md:py-20 bg-[#FAFAF7] relative w-full -mt-6">
         {/* Background grid pattern with reduced opacity */}
@@ -74,7 +123,6 @@ export default function ContactPage() {
             sizes="100vw"
           />
         </div>
-        
         <div className="container mx-auto relative z-10 px-4 flex flex-col items-center">
           {/* Contact Cards Container */}
           <div className="w-full max-w-6xl mx-auto grid md:grid-cols-2 gap-8 lg:gap-10">
@@ -83,13 +131,53 @@ export default function ContactPage() {
               <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-[#FFB333]/10 to-white">
                 <div className="flex items-center">
                   <Calendar className="h-6 w-6 text-[#F87239] mr-3" />
-                  <h2 className="text-2xl font-bold text-gray-900">Schedule a Consultation</h2>
+                  <button
+                    type="button"
+                    className="text-2xl font-bold text-gray-900 focus:outline-none hover:text-[#F87239] transition-colors"
+                    onClick={() => {}}>
+                    Schedule a Consultation
+                  </button>
                 </div>
                 <p className="text-gray-600 mt-2 ml-9">Book a personalized session with our education experts</p>
               </div>
-              
               <div className="p-8">
-                <div className="space-y-6">
+                <form ref={appointmentFormRef} onSubmit={handleAppointmentSubmit} className="space-y-6">
+                  <div className="space-y-3">
+                    <label htmlFor="appointment-name" className="flex items-center text-sm font-medium text-gray-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#F87239]" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
+                      Your Name
+                    </label>
+                    <Input
+                      id="appointment-name"
+                      name="name"
+                      placeholder="Enter your name"
+                      value={appointmentName}
+                      onChange={(e) => setAppointmentName(e.target.value)}
+                      className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label htmlFor="appointment-email" className="flex items-center text-sm font-medium text-gray-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#F87239]" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                      </svg>
+                      Email Address
+                    </label>
+                    <Input
+                      id="appointment-email"
+                      name="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={appointmentEmail}
+                      onChange={(e) => setAppointmentEmail(e.target.value)}
+                      className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]"
+                      required
+                    />
+                  </div>
                   <div className="space-y-3">
                     <label htmlFor="date" className="flex items-center text-sm font-medium text-gray-700">
                       <Calendar className="h-4 w-4 mr-2 text-[#F87239]" />
@@ -99,14 +187,15 @@ export default function ContactPage() {
                       <input
                         type="date"
                         id="date"
+                        name="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
                         className="flex h-12 w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm ring-offset-white focus:outline-none focus:ring-2 focus:ring-[#F87239] focus:border-[#F87239]"
                         min={new Date().toISOString().split('T')[0]}
+                        required
                       />
                     </div>
                   </div>
-
                   <div className="space-y-3">
                     <label htmlFor="time" className="flex items-center text-sm font-medium text-gray-700">
                       <Clock className="h-4 w-4 mr-2 text-[#F87239]" />
@@ -116,10 +205,12 @@ export default function ContactPage() {
                       <input
                         type="time"
                         id="time"
+                        name="time"
                         value={time}
                         onChange={handleTimeChange}
                         className="flex h-12 w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm ring-offset-white focus:outline-none focus:ring-2 focus:ring-[#F87239] focus:border-[#F87239]"
                         placeholder="HH:mm"
+                        required
                       />
                     </div>
                     <p className="text-sm text-gray-500 flex items-center">
@@ -127,19 +218,18 @@ export default function ContactPage() {
                       Available hours: 09:00 - 17:00
                     </p>
                   </div>
-
                   <div className="pt-4">
-                    <button 
+                    <button
+                      type="submit"
                       className="w-full bg-[#FFB333] hover:bg-[#F87239] text-white font-medium py-4 px-6 rounded-lg transition-all hover:shadow-lg disabled:opacity-50 disabled:pointer-events-none"
-                      disabled={!date || !time}
+                      disabled={!date || !time || !appointmentName || !appointmentEmail}
                     >
                       Schedule Consultation
                     </button>
                   </div>
-                </div>
+                </form>
               </div>
             </div>
-
             {/* Right Card - Contact Form */}
             <div className="w-full bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-[1.01] transition-transform duration-300">
               <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-[#F87239]/10 to-white">
@@ -151,84 +241,32 @@ export default function ContactPage() {
                 </div>
                 <p className="text-gray-600 mt-2 ml-9">We'll get back to you as soon as possible</p>
               </div>
-              
               <div className="p-8">
-                <form className="space-y-6">
+                <form ref={formRef} className="space-y-6" onSubmit={handleSendEmail}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label htmlFor="first-name" className="text-sm font-medium text-gray-700">
-                        First Name*
-                      </label>
-                      <Input 
-                        id="first-name" 
-                        placeholder="First Name" 
-                        className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" 
-                      />
+                      <label htmlFor="first-name" className="text-sm font-medium text-gray-700">First Name*</label>
+                      <Input id="first-name" name="first_name" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="last-name" className="text-sm font-medium text-gray-700">
-                        Last Name*
-                      </label>
-                      <Input 
-                        id="last-name" 
-                        placeholder="Last Name" 
-                        className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" 
-                      />
+                      <label htmlFor="last-name" className="text-sm font-medium text-gray-700">Last Name*</label>
+                      <Input id="last-name" name="last_name" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" />
                     </div>
                   </div>
-
                   <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                      Email*
-                    </label>
-                    <Input 
-                      id="email" 
-                      type="email" 
-                      placeholder="Email Address" 
-                      className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" 
-                    />
+                    <label htmlFor="email" className="text-sm font-medium text-gray-700">Email*</label>
+                    <Input id="email" name="email" type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" />
                   </div>
-
                   <div className="space-y-2">
-                    <label htmlFor="subject" className="text-sm font-medium text-gray-700">
-                      Subject*
-                    </label>
-                    <Select>
-                      <SelectTrigger 
-                        id="subject" 
-                        className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]"
-                      >
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">General Inquiry</SelectItem>
-                        <SelectItem value="sales">Sales Question</SelectItem>
-                        <SelectItem value="support">Technical Support</SelectItem>
-                        <SelectItem value="partnership">Partnership Opportunity</SelectItem>
-                        <SelectItem value="demo">Request a Demo</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <label htmlFor="subject" className="text-sm font-medium text-gray-700">Subject*</label>
+                    <Input id="subject" name="subject" placeholder="Subject" value={subject} onChange={e => setSubject(e.target.value)} className="h-12 border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" />
                   </div>
-
                   <div className="space-y-2">
-                    <label htmlFor="message" className="text-sm font-medium text-gray-700">
-                      How can we help?*
-                    </label>
-                    <Textarea 
-                      id="message" 
-                      placeholder="Message" 
-                      rows={5} 
-                      className="border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" 
-                    />
+                    <label htmlFor="message" className="text-sm font-medium text-gray-700">How can we help?*</label>
+                    <Textarea id="message" name="message" placeholder="Message" rows={5} value={message} onChange={e => setMessage(e.target.value)} className="border-gray-200 rounded-lg focus:border-[#F87239] focus:ring-[#F87239]" />
                   </div>
-
                   <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      className="w-full bg-[#FFB333] hover:bg-[#F87239] text-white font-medium py-4 px-6 rounded-lg transition-all hover:shadow-lg"
-                    >
-                      Submit
-                    </Button>
+                    <Button type="submit" className="w-full bg-[#FFB333] hover:bg-[#F87239] text-white font-medium py-4 px-6 rounded-lg transition-all hover:shadow-lg">Submit</Button>
                   </div>
                 </form>
               </div>
@@ -236,7 +274,6 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
-
       {/* FAQ Section with updated styling */}
       <section className="py-16 md:py-20 bg-[#F5F5ED] relative overflow-hidden w-full">
         {/* Grid Pattern Background with reduced opacity */}
@@ -250,7 +287,6 @@ export default function ContactPage() {
             sizes="100vw"
           />
         </div>
-        
         <div className="container mx-auto relative z-10 px-4 flex flex-col items-center">
           <div className="text-center mb-12 max-w-3xl">
             <h2 className="text-3xl font-bold mb-4 text-gray-900">Frequently Asked Questions</h2>
@@ -258,7 +294,6 @@ export default function ContactPage() {
               Find quick answers to common questions about our LMS platform.
             </p>
           </div>
-
           <div className="w-full max-w-4xl grid md:grid-cols-2 gap-6 mx-auto">
             {[
               {
@@ -288,7 +323,6 @@ export default function ContactPage() {
               </div>
             ))}
           </div>
-
           <div className="text-center mt-8">
             <Link href="/faqs" className="text-[#F87239] hover:text-[#F87239]/80 font-medium">
               View all FAQs
@@ -296,7 +330,6 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
-
       {/* Call to Action Section */}
       <section className="bg-[#FAFAF7] py-16 md:py-20 w-full">
         <div className="container mx-auto px-4 flex justify-center">
@@ -335,4 +368,4 @@ export default function ContactPage() {
       </section>
     </main>
   )
-} 
+}
